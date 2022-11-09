@@ -57,8 +57,9 @@ from gym_pybullet_drones.utils.Logger import Logger
 
 import shared_constants
 
-OWN_OBS_VEC_SIZE = None # Modified at runtime
-ACTION_VEC_SIZE = None # Modified at runtime
+OWN_OBS_VEC_SIZE = None  # Modified at runtime
+ACTION_VEC_SIZE = None  # Modified at runtime
+
 
 #### Useful links ##########################################
 # Workflow: github.com/ray-project/ray/blob/master/doc/source/rllib-training.rst
@@ -83,19 +84,19 @@ class CustomTorchCentralizedCriticModel(TorchModelV2, nn.Module):
         TorchModelV2.__init__(self, obs_space, action_space, num_outputs, model_config, name)
         nn.Module.__init__(self)
         self.action_model = FullyConnectedNetwork(
-                                                  Box(low=-1, high=1, shape=(OWN_OBS_VEC_SIZE, )), 
-                                                  action_space,
-                                                  num_outputs,
-                                                  model_config,
-                                                  name + "_action"
-                                                  )
+            Box(low=-1, high=1, shape=(OWN_OBS_VEC_SIZE,)),
+            action_space,
+            num_outputs,
+            model_config,
+            name + "_action"
+        )
         self.value_model = FullyConnectedNetwork(
-                                                 obs_space, 
-                                                 action_space,
-                                                 1, 
-                                                 model_config, 
-                                                 name + "_vf"
-                                                 )
+            obs_space,
+            action_space,
+            1,
+            model_config,
+            name + "_vf"
+        )
         self._model_in = None
 
     def forward(self, input_dict, state, seq_lens):
@@ -106,19 +107,23 @@ class CustomTorchCentralizedCriticModel(TorchModelV2, nn.Module):
         value_out, _ = self.value_model({"obs": self._model_in[0]}, self._model_in[1], self._model_in[2])
         return torch.reshape(value_out, [-1])
 
+
 ############################################################
 class FillInActions(DefaultCallbacks):
-    def on_postprocess_trajectory(self, worker, episode, agent_id, policy_id, policies, postprocessed_batch, original_batches, **kwargs):
+    def on_postprocess_trajectory(self, worker, episode, agent_id, policy_id, policies, postprocessed_batch,
+                                  original_batches, **kwargs):
         to_update = postprocessed_batch[SampleBatch.CUR_OBS]
         other_id = 1 if agent_id == 0 else 0
-        action_encoder = ModelCatalog.get_preprocessor_for_space( 
-                                                                 # Box(-np.inf, np.inf, (ACTION_VEC_SIZE,), np.float32) # Unbounded
-                                                                 Box(-1, 1, (ACTION_VEC_SIZE,), np.float32) # Bounded
-                                                                 )
+        action_encoder = ModelCatalog.get_preprocessor_for_space(
+            # Box(-np.inf, np.inf, (ACTION_VEC_SIZE,), np.float32) # Unbounded
+            Box(-1, 1, (ACTION_VEC_SIZE,), np.float32)  # Bounded
+        )
         _, opponent_batch = original_batches[other_id]
         # opponent_actions = np.array([action_encoder.transform(a) for a in opponent_batch[SampleBatch.ACTIONS]]) # Unbounded
-        opponent_actions = np.array([action_encoder.transform(np.clip(a, -1, 1)) for a in opponent_batch[SampleBatch.ACTIONS]]) # Bounded
+        opponent_actions = np.array(
+            [action_encoder.transform(np.clip(a, -1, 1)) for a in opponent_batch[SampleBatch.ACTIONS]])  # Bounded
         to_update[:, -ACTION_VEC_SIZE:] = opponent_actions
+
 
 ############################################################
 def central_critic_observer(agent_obs, **kw):
@@ -126,44 +131,51 @@ def central_critic_observer(agent_obs, **kw):
         0: {
             "own_obs": agent_obs[0],
             "opponent_obs": agent_obs[1],
-            "opponent_action": np.zeros(ACTION_VEC_SIZE), # Filled in by FillInActions
+            "opponent_action": np.zeros(ACTION_VEC_SIZE),  # Filled in by FillInActions
         },
         1: {
             "own_obs": agent_obs[1],
             "opponent_obs": agent_obs[0],
-            "opponent_action": np.zeros(ACTION_VEC_SIZE), # Filled in by FillInActions
+            "opponent_action": np.zeros(ACTION_VEC_SIZE),  # Filled in by FillInActions
         },
     }
     return new_obs
+
 
 ############################################################
 if __name__ == "__main__":
 
     #### Define and parse (optional) arguments for the script ##
     parser = argparse.ArgumentParser(description='Multi-agent reinforcement learning experiments script')
-    parser.add_argument('--num_drones',  default=2,                 type=int,                                                                 help='Number of drones (default: 2)', metavar='')
-    parser.add_argument('--env',         default='leaderfollower',  type=str,             choices=['leaderfollower', 'flock', 'meetup'],      help='Task (default: leaderfollower)', metavar='')
-    parser.add_argument('--obs',         default='kin',             type=ObservationType,                                                     help='Observation space (default: kin)', metavar='')
-    parser.add_argument('--act',         default='one_d_rpm',       type=ActionType,                                                          help='Action space (default: one_d_rpm)', metavar='')
-    parser.add_argument('--algo',        default='cc',              type=str,             choices=['cc'],                                     help='MARL approach (default: cc)', metavar='')
-    parser.add_argument('--workers',     default=0,                 type=int,                                                                 help='Number of RLlib workers (default: 0)', metavar='')        
+    parser.add_argument('--num_drones', default=2, type=int, help='Number of drones (default: 2)', metavar='')
+    parser.add_argument('--env', default='leaderfollower', type=str, choices=['leaderfollower', 'flock', 'meetup'],
+                        help='Task (default: leaderfollower)', metavar='')
+    parser.add_argument('--obs', default='kin', type=ObservationType, help='Observation space (default: kin)',
+                        metavar='')
+    parser.add_argument('--act', default='one_d_rpm', type=ActionType, help='Action space (default: one_d_rpm)',
+                        metavar='')
+    parser.add_argument('--algo', default='cc', type=str, choices=['cc'], help='MARL approach (default: cc)',
+                        metavar='')
+    parser.add_argument('--workers', default=0, type=int, help='Number of RLlib workers (default: 0)', metavar='')
     ARGS = parser.parse_args()
 
     #### Save directory ########################################
-    filename = os.path.dirname(os.path.abspath(__file__))+'/results/save-'+ARGS.env+'-'+str(ARGS.num_drones)+'-'+ARGS.algo+'-'+ARGS.obs.value+'-'+ARGS.act.value+'-'+datetime.now().strftime("%m.%d.%Y_%H.%M.%S")
+    filename = os.path.dirname(os.path.abspath(__file__)) + '/results/save-' + ARGS.env + '-' + str(
+        ARGS.num_drones) + '-' + ARGS.algo + '-' + ARGS.obs.value + '-' + ARGS.act.value + '-' + datetime.now().strftime(
+        "%m.%d.%Y_%H.%M.%S")
     if not os.path.exists(filename):
-        os.makedirs(filename+'/')
+        os.makedirs(filename + '/')
 
     #### Print out current git commit hash #####################
     if platform == "linux" or platform == "darwin":
         git_commit = subprocess.check_output(["git", "describe", "--tags"]).strip()
-        with open(filename+'/git_commit.txt', 'w+') as f:
+        with open(filename + '/git_commit.txt', 'w+') as f:
             f.write(str(git_commit))
 
     #### Constants, and errors #################################
-    if ARGS.obs==ObservationType.KIN:
+    if ARGS.obs == ObservationType.KIN:
         OWN_OBS_VEC_SIZE = 12
-    elif ARGS.obs==ObservationType.RGB:
+    elif ARGS.obs == ObservationType.RGB:
         print("[ERROR] ObservationType.RGB for multi-agent systems not yet implemented")
         exit()
     else:
@@ -253,34 +265,34 @@ if __name__ == "__main__":
     # you can defer environment initialization until ``reset()`` is called
 
     #### Set up the trainer's config ###########################
-    config = ppo.DEFAULT_CONFIG.copy() # For the default config, see github.com/ray-project/ray/blob/master/rllib/agents/trainer.py
+    config = ppo.DEFAULT_CONFIG.copy()  # For the default config, see github.com/ray-project/ray/blob/master/rllib/agents/trainer.py
     config = {
         "env": temp_env_name,
         "num_workers": 0 + ARGS.workers,
-        "num_gpus": int(os.environ.get("RLLIB_NUM_GPUS", "0")), # Use GPUs iff `RLLIB_NUM_GPUS` env var set to > 0
+        "num_gpus": int(os.environ.get("RLLIB_NUM_GPUS", "0")),  # Use GPUs iff `RLLIB_NUM_GPUS` env var set to > 0
         "batch_mode": "complete_episodes",
         "callbacks": FillInActions,
         "framework": "torch",
     }
 
     #### Set up the model parameters of the trainer's config ###
-    config["model"] = { 
+    config["model"] = {
         "custom_model": "cc_model",
     }
-    
+
     #### Set up the multiagent params of the trainer's config ##
-    config["multiagent"] = { 
+    config["multiagent"] = {
         "policies": {
-            "pol0": (None, observer_space, action_space, {"agent_id": 0,}),
-            "pol1": (None, observer_space, action_space, {"agent_id": 1,}),
+            "pol0": (None, observer_space, action_space, {"agent_id": 0, }),
+            "pol1": (None, observer_space, action_space, {"agent_id": 1, }),
         },
-        "policy_mapping_fn": lambda x: "pol0" if x == 0 else "pol1", # # Function mapping agent ids to policy ids
-        "observation_fn": central_critic_observer, # See rllib/evaluation/observation_function.py for more info
+        "policy_mapping_fn": lambda x: "pol0" if x == 0 else "pol1",  # # Function mapping agent ids to policy ids
+        "observation_fn": central_critic_observer,  # See rllib/evaluation/observation_function.py for more info
     }
 
     #### Ray Tune stopping conditions ##########################
     stop = {
-        "timesteps_total": 120000, # 100000 ~= 10'
+        "timesteps_total": 100,  # 100000 ~= 10'
         # "episode_reward_mean": 0,
         # "training_iteration": 0,
     }
@@ -302,7 +314,7 @@ if __name__ == "__main__":
                                                                                    ),
                                                       metric='episode_reward_mean'
                                                       )
-    with open(filename+'/checkpoint.txt', 'w+') as f:
+    with open(filename + '/checkpoint.txt', 'w+') as f:
         f.write(checkpoints[0][0])
 
     #### Shut down Ray #########################################
