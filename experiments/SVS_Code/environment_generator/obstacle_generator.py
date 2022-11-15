@@ -239,12 +239,13 @@ class World:
 
         d["N"] = len(d.keys())
 
-        with open("static_obstacles.csv", "w") as f:
+        with open(os.path.join(os.path.dirname(__file__), "static_obstacles.csv"), "w") as f:
             f.write("\n".join(static_obstacles))
 
 
 if __name__ == "__main__":
-    with open("obstacle_config.yaml") as f:
+
+    with open(os.path.join(os.path.dirname(__file__), "obstacle_config.yaml")) as f:
         config = yaml.safe_load(f)
     w = World(config)
     w.toCSV()
