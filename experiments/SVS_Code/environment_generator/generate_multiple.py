@@ -1,4 +1,9 @@
-# Provide number of environments to be generated
+# 
+# python-edition of "generate_multiple.bash"
+# 
+# usage:
+# > python generate_multiple.py N DENSITY_MULTIPLIER
+#
 
 import sys
 import os
