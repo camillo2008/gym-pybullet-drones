@@ -349,6 +349,7 @@ class BattleAviary(BaseMultiagentAviary):
 
     def step(self, action):
 
+        # Visualize the image
         img = self._getDroneImages(1, False)
         import matplotlib.pyplot as plt
         plt.imshow(img, cmap='gray', vmin=0, vmax=255)
