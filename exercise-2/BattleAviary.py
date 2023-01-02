@@ -587,7 +587,6 @@ class BattleAviary(BaseMultiagentAviary):
         if self.step_counter == 300:
             done[0] = True
             self._agent_ids.remove(0)
-            print("deaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd")
         states = np.array([self._getDroneStateVector(i) for i in range(self.NUM_DRONES)])
 
         for i in range(self.NUM_DRONES):
@@ -598,7 +597,6 @@ class BattleAviary(BaseMultiagentAviary):
         if self.step_counter > 500:
             done[1] = True
             done["__all__"] = True
-        print(done)
         return done
 
     ################################################################################
