@@ -28,14 +28,14 @@ from ray.rllib.models.torch.fcnet import FullyConnectedNetwork
 import ray
 from ray import tune
 from ray.tune.logger import DEFAULT_LOGGERS
-from ray.tune import register_env, CLIReporter
-from ray.rllib.agents import ppo
-from experiments.SVS_Code.utils import build_env_by_name, from_env_name_to_class
+from ray.tune import  CLIReporter
+from ray.tune.registry import register_env
+from .SVS_Code.utils import build_env_by_name, from_env_name_to_class
 from experiments.learning import shared_constants
 from gym_pybullet_drones.envs.single_agent_rl.BaseSingleAgentAviary import ActionType, ObservationType
 from gym_pybullet_drones.utils.Logger import Logger
 from gym_pybullet_drones.utils.utils import str2bool, sync
-
+from ray.rllib.algorithms import ppo
 ############################################################
 if __name__ == "__main__":
 
@@ -128,7 +128,9 @@ if __name__ == "__main__":
                                                                      )
     #### Register the environment ##############################
     register_env(env, env_callable)
-
+    algo = ppo.PPO(env=env)
+    while True:
+        algo.train()
     config = {
         "env": env,
         # "no_done_at_end": True,
@@ -186,20 +188,16 @@ if __name__ == "__main__":
         #print(checkpoints)
 
     else:
-        filename = os.path.dirname(os.path.abspath(__file__)) + '/results/tryOfSave' + '-' + str(
-        ARGS.num_drones) + '-' + ARGS.algo + '-' + ARGS.obs.value + '-' + ARGS.act.value + '-' + datetime.now().strftime("%m.%d.%Y_%H.%M.%S")
-        if not os.path.exists(filename):
-            os.makedirs(filename + '/')
-        OBS = ObservationType.KIN if ARGS.exp.split("-")[3] == 'kin' else ObservationType.RGB
-        action_name = ARGS.exp.split("-")[4]
-        NUM_DRONES = int(ARGS.exp.split("-")[1])
+        OBS = ObservationType.KIN if ARGS.exp.split("-")[4] == 'kin' else ObservationType.RGB
+        action_name = ARGS.exp.split("-")[5]
+        NUM_DRONES = int(ARGS.exp.split("-")[2])
         ACT = [action for action in ActionType if action.value == action_name][0]
         #### Restore agent #########################################
         agent = ppo.PPOTrainer(config=config)
-        with open(ARGS.exp + 'checkpoint.txt', 'r+') as f:
+        with open(ARGS.exp + '/checkpoint.txt', 'r+') as f:
             checkpoint = f.read()
         agent.restore(checkpoint)
-        #print(checkpoint)
+        print(checkpoint)
 
         #### Extract and print policies ############################
         policy0 = agent.get_policy("pol0")
@@ -229,17 +227,18 @@ if __name__ == "__main__":
             action = {0: temp[0][0], 1: temp[1][0]}
             obs, reward, done, info = temp_env.step(action)
             temp_env.render()
-            # if OBS == ObservationType.KIN:
-            #     for j in range(NUM_DRONES):
-            #         logger.log(drone=j,
-            #                    timestamp=i / temp_env.SIM_FREQ,
-            #                    state=np.hstack([obs[j][0:3], np.zeros(4), obs[j][3:15], np.resize(action[j], (4))])
-            #                    )
+            if OBS == ObservationType.KIN:
+                for j in range(NUM_DRONES):
+                    logger.log(drone=j,
+                               timestamp=i / temp_env.SIM_FREQ,
+                               state=np.hstack([obs[j][0:3], np.zeros(4), obs[j][3:15], np.resize(action[j], (4))]),
+                               control=np.zeros(12)
+                               )
             sync(np.floor(i * temp_env.AGGR_PHY_STEPS), start, temp_env.TIMESTEP)
             # if done["__all__"]: obs = test_env.reset() # OPTIONAL EPISODE HALT
         temp_env.close()
-        #logger.save_as_csv("ma")  # Optional CSV save
-        #logger.plot()
+        logger.save_as_csv("ma")  # Optional CSV save
+        logger.plot()
 
-    #### Shut down Ray #########################################
+#### Shut down Ray #########################################
     ray.shutdown()

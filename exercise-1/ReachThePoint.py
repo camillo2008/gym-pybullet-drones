@@ -12,54 +12,22 @@ Check Ray's status at:
     http://127.0.0.1:8265
 
 """
+import argparse
 import os
 import time
-import argparse
 from datetime import datetime
-import sys
-from sys import platform
-import subprocess
-import pdb
-import math
-import numpy as np
-import pybullet as p
-import pickle
-import matplotlib.pyplot as plt
-import gym
-from gym import error, spaces, utils
-from gym.utils import seeding
-from gym.spaces import Box, Dict
-import torch
-import torch.nn as nn
-from ray.rllib.models.torch.fcnet import FullyConnectedNetwork
-import ray
-from ray import tune
-from ray.tune.logger import DEFAULT_LOGGERS
-from ray.tune import register_env, CLIReporter
-from ray.rllib.agents import ppo
-from ray.rllib.agents.ppo import PPOTrainer, PPOTFPolicy
-from ray.rllib.examples.policy.random_policy import RandomPolicy
-from ray.rllib.utils.test_utils import check_learning_achieved
-from ray.rllib.agents.callbacks import DefaultCallbacks
-from ray.rllib.models.torch.torch_modelv2 import TorchModelV2
-from ray.rllib.models import ModelCatalog
-from ray.rllib.policy.sample_batch import SampleBatch
-from ray.rllib.env.multi_agent_env import ENV_STATE
 
-from experiments.SVS_Code.utils import build_env_by_name, from_env_name_to_class
+import numpy as np
+import ray
+import torch
+from ray.rllib.agents import ppo
+from ray.tune import register_env, CLIReporter
+
 from experiments.learning import shared_constants
-from gym_pybullet_drones.utils.enums import DroneModel, Physics
-from gym_pybullet_drones.envs.multi_agent_rl.FlockAviary import FlockAviary
-from gym_pybullet_drones.envs.multi_agent_rl.LeaderFollowerAviary import LeaderFollowerAviary
-from gym_pybullet_drones.envs.multi_agent_rl.MeetupAviary import MeetupAviary
 from gym_pybullet_drones.envs.single_agent_rl.BaseSingleAgentAviary import ActionType, ObservationType
 from gym_pybullet_drones.utils.Logger import Logger
-from experiments.SVS_Code.env_builder import EnvBuilder
 from gym_pybullet_drones.utils.utils import str2bool, sync
-from ray.rllib.examples.models.shared_weights_model import (
-
-    TorchSharedWeightsModel,
-)
+from utils import build_env_by_name
 
 ############################################################
 if __name__ == "__main__":
@@ -86,9 +54,8 @@ if __name__ == "__main__":
 
     ARGS = parser.parse_args()
 
-
     #### Print out current git commit hash #####################
-    #if platform == "linux" or platform == "darwin":
+    # if platform == "linux" or platform == "darwin":
     #    git_commit = subprocess.check_output(["git", "describe", "--tags"]).strip()
     #    with open(filename + '/git_commit.txt', 'w+') as f:
     #        f.write(str(git_commit))
@@ -121,6 +88,7 @@ if __name__ == "__main__":
     from ray import tune
 
     import importlib
+
     module = importlib.import_module('exercise-1.' + ARGS.env)
     env_class_imported = getattr(module, ARGS.env)
 
@@ -140,9 +108,9 @@ if __name__ == "__main__":
         "num_gpus": torch.cuda.device_count(),
         "batch_mode": "complete_episodes",
         "framework": "torch",
-        #"rollout_fragment_length" : 200,
-        "lr" : 1e-4,
-        #"entropy_coeff": 0.000001,
+        # "rollout_fragment_length" : 200,
+        "lr": 1e-4,
+        # "entropy_coeff": 0.000001,
         "gamma": 0.9999,
         "preprocessor_pref": "deepmind",
         "multiagent": {
@@ -155,7 +123,7 @@ if __name__ == "__main__":
                 "pol2": (None, obs_space[2], act_space[2], {"agent_id": 2, }),
                 "pol3": (None, obs_space[3], act_space[3], {"agent_id": 3, }),
             },
-            "policy_mapping_fn": lambda x: "pol"+str(x),
+            "policy_mapping_fn": lambda x: "pol" + str(x),
             # Always use "shared" policy.
         }
     }
@@ -167,7 +135,7 @@ if __name__ == "__main__":
 
     if not ARGS.exp:
 
-          #### Save directory ########################################
+        #### Save directory ########################################
         filename = os.path.dirname(os.path.abspath(__file__)) + '/results/save-' + ARGS.env + '-' + str(
             ARGS.num_drones) + '-' + ARGS.algo + '-' + ARGS.obs.value + '-' + ARGS.act.value + '-' + datetime.now().strftime(
             "%m.%d.%Y_%H.%M.%S")
@@ -200,7 +168,7 @@ if __name__ == "__main__":
 
     else:
 
-          #### Save directory ########################################
+        #### Save directory ########################################
         filename = os.path.dirname(os.path.abspath(__file__)) + '/results/tryOfSave-' + ARGS.env + '-' + str(
             ARGS.num_drones) + '-' + ARGS.algo + '-' + ARGS.obs.value + '-' + ARGS.act.value + '-' + datetime.now().strftime(
             "%m.%d.%Y_%H.%M.%S")
