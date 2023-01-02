@@ -76,21 +76,35 @@ class ReachThePointAviary(BaseMultiagentAviary):
 
     def _addObstacles(self):
         """Add obstacles to the environment.
-
+        This method is called once per reset, the environment is recreated each time, maybe caching sphere is a good idea(Gyordan)
         Only if the observation is of type RGB, 4 landmarks are added.
         Overrides BaseAviary's method.
 
         """
-
         import pybullet as p
-        sphere = p.loadURDF("sphere_small.urdf",
-                            SPHERE_POS,
-                            p.getQuaternionFromEuler([0, 0, 0]),
-                            physicsClientId=self.CLIENT,
-                            useFixedBase=True,
-                            globalScaling=10,
-                            )
-        p.changeVisualShape(sphere, -1, rgbaColor=[0, 0, 1, 1])
+        import csv
+        import os
+        import experiments.SVS_Code as module_path
+        from random import randrange
+        env_number = str(randrange(10))
+        csv_file_path = os.path.dirname(
+            module_path.__file__) + "/environment_generator/generated_envs/{0}/static_obstacles.csv".format(
+            "environment_" + env_number)
+
+        with open(csv_file_path, mode='r') as infile:
+            reader = csv.reader(infile)
+            # prefab_name,pos_x,pos_y,pos_z,radius
+            spheres = [[str(rows[0]), float(rows[1]), float(rows[2]), float(rows[3]), float(rows[4])] for rows in
+                       reader]
+        for sphere in spheres:
+            temp = p.loadURDF(sphere[0],
+                              sphere[1:4:],
+                              p.getQuaternionFromEuler([0, 0, 0]),
+                              physicsClientId=self.CLIENT,
+                              useFixedBase=True,
+                              globalScaling=10 * sphere[4],
+                              )
+            p.changeVisualShape(temp, -1, rgbaColor=[0, 0, 1, 1])
 
         """
         import pybullet as p

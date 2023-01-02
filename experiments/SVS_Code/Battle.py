@@ -12,22 +12,14 @@ Check Ray's status at:
     http://127.0.0.1:8265
 
 """
+import logging
 import os
 import time
 import argparse
 from datetime import datetime
 from sys import platform
 import subprocess
-import pdb
-import math
 import numpy as np
-import pybullet as p
-import pickle
-import matplotlib.pyplot as plt
-import gym
-from gym import error, spaces, utils
-from gym.utils import seeding
-from gym.spaces import Box, Dict
 import torch
 import torch.nn as nn
 from ray.rllib.models.torch.fcnet import FullyConnectedNetwork
@@ -36,30 +28,11 @@ from ray import tune
 from ray.tune.logger import DEFAULT_LOGGERS
 from ray.tune import register_env, CLIReporter
 from ray.rllib.agents import ppo
-from ray.rllib.agents.ppo import PPOTrainer, PPOTFPolicy
-from ray.rllib.examples.policy.random_policy import RandomPolicy
-from ray.rllib.utils.test_utils import check_learning_achieved
-from ray.rllib.agents.callbacks import DefaultCallbacks
-from ray.rllib.models.torch.torch_modelv2 import TorchModelV2
-from ray.rllib.models import ModelCatalog
-from ray.rllib.policy.sample_batch import SampleBatch
-from ray.rllib.env.multi_agent_env import ENV_STATE
-
 from experiments.SVS_Code.utils import build_env_by_name, from_env_name_to_class
 from experiments.learning import shared_constants
-from gym_pybullet_drones.utils.enums import DroneModel, Physics
-from gym_pybullet_drones.envs.multi_agent_rl.FlockAviary import FlockAviary
-from gym_pybullet_drones.envs.multi_agent_rl.LeaderFollowerAviary import LeaderFollowerAviary
-from gym_pybullet_drones.envs.multi_agent_rl.ReachThePointAviary import ReachThePointAviary
-from gym_pybullet_drones.envs.multi_agent_rl.MeetupAviary import MeetupAviary
 from gym_pybullet_drones.envs.single_agent_rl.BaseSingleAgentAviary import ActionType, ObservationType
 from gym_pybullet_drones.utils.Logger import Logger
-from env_builder import EnvBuilder
 from gym_pybullet_drones.utils.utils import str2bool, sync
-from ray.rllib.examples.models.shared_weights_model import (
-
-    TorchSharedWeightsModel,
-)
 
 ############################################################
 if __name__ == "__main__":
@@ -67,8 +40,6 @@ if __name__ == "__main__":
     #### Define and parse (optional) arguments for the script ##
     parser = argparse.ArgumentParser(description='Multi-agent reinforcement learning experiments script')
     parser.add_argument('--num_drones', default=2, type=int, help='Number of drones (default: 2)', metavar='')
-    parser.add_argument('--env', default='ReachThePointAviary', type=str, choices=['ReachThePointAviary'],
-                        help='Task (default: leaderfollower)', metavar='')
     parser.add_argument('--obs', default='kin', type=ObservationType, help='Observation space (default: kin)',
                         metavar='')
     parser.add_argument('--act', default='pid', type=ActionType, help='Action space (default: one_d_rpm)',
@@ -87,7 +58,7 @@ if __name__ == "__main__":
     ARGS = parser.parse_args()
 
     #### Save directory ########################################
-    filename = os.path.dirname(os.path.abspath(__file__)) + '/results/save-' + ARGS.env + '-' + str(
+    filename = os.path.dirname(os.path.abspath(__file__)) + '/results/save' + '-' + str(
         ARGS.num_drones) + '-' + ARGS.algo + '-' + ARGS.obs.value + '-' + ARGS.act.value + '-' + datetime.now().strftime(
         "%m.%d.%Y_%H.%M.%S")
     if not os.path.exists(filename):
@@ -118,26 +89,44 @@ if __name__ == "__main__":
         print("[ERROR] unknown ActionType")
         exit(4)
 
+    if ARGS.num_drones % 2 == 0 and ARGS.num_drones >= 2:
+        RED_TEAM_INIT_XYZS = np.array(
+            [[-0.5 + (0.5 * i), 5, 2] for i in range(int(ARGS.num_drones / 2))])
+        BLUE_TEAM_INIT_XYZS = np.array(
+            [[-0.5 + (0.5 * i), -5, 2] for i in range(int(ARGS.num_drones / 2))])
+        INIT_XYZS = np.concatenate((RED_TEAM_INIT_XYZS, BLUE_TEAM_INIT_XYZS))
+
+        RED_TEAM_INIT_RPYS = np.array([[0, 0, -1.41372] for i in range(int(ARGS.num_drones / 2))])
+
+        BLUE_TEAM_INIT_RPYS = np.array([[0, 0, 1.41372] for i in range(int(ARGS.num_drones / 2))])
+
+        INIT_RPYS = np.concatenate((RED_TEAM_INIT_RPYS, BLUE_TEAM_INIT_RPYS))
+    else:
+        logging.exception("The number of drones must be even and grater than2")
+        exit(-1)
+
     #### Uncomment to debug slurm scripts ######################
     # exit()
 
     #### Initialize Ray Tune ###################################
     ray.shutdown()
     ray.init(ignore_reinit_error=True, local_mode=ARGS.debug)
-    from ray import tune
-
-    env_callable, obs_space, act_space, temp_env = build_env_by_name(env_class=from_env_name_to_class(ARGS.env),
+    env = "BattleAviary"
+    env_callable, obs_space, act_space, temp_env = build_env_by_name(env_class=from_env_name_to_class(env),
                                                                      num_drones=ARGS.num_drones,
                                                                      aggregate_phy_steps=shared_constants.AGGR_PHY_STEPS,
                                                                      obs=ARGS.obs,
+                                                                     initial_xyzs=INIT_XYZS,
+                                                                     initial_rpys=INIT_RPYS,
                                                                      act=ARGS.act,
                                                                      gui=ARGS.gui
                                                                      )
     #### Register the environment ##############################
-    register_env(ARGS.env, env_callable)
+    register_env(env, env_callable)
 
     config = {
-        "env": ARGS.env,
+        "env": env,
+        # "no_done_at_end": True,
         "num_workers": 0 + ARGS.workers,
         "num_gpus": torch.cuda.device_count(),
         "batch_mode": "complete_episodes",
