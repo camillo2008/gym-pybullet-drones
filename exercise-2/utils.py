@@ -5,8 +5,20 @@ def from_env_name_to_class(env_name):
     return env_class
 
 
-def build_env_by_name(env_class, **kwargs):
+def build_env_by_name_old(env_class, **kwargs):
     temp_kwargs = kwargs.copy()
     # temp_kwargs["gui"] = False  # This will avoid two spawned gui
+    temp_env = env_class(**temp_kwargs)
+    return lambda _: env_class(**kwargs), temp_env.observation_space, temp_env.action_space, temp_env
+
+
+def build_env_by_name(env_class, exp, **kwargs):
+    temp_kwargs = kwargs.copy()
+
+    if exp:
+        kwargs["gui"] = False  # This will avoid two spawned gui
+    else:
+        temp_kwargs["gui"] = False  # This will avoid two spawned gui
+
     temp_env = env_class(**temp_kwargs)
     return lambda _: env_class(**kwargs), temp_env.observation_space, temp_env.action_space, temp_env

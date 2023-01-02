@@ -114,6 +114,7 @@ if __name__ == "__main__":
     env_class_imported = getattr(module, env)
 
     env_callable, obs_space, act_space, temp_env = build_env_by_name(env_class=env_class_imported,
+                                                                     exp=ARGS.exp,
                                                                      num_drones=ARGS.num_drones,
                                                                      aggregate_phy_steps=shared_constants.AGGR_PHY_STEPS,
                                                                      obs=ARGS.obs,
@@ -158,6 +159,7 @@ if __name__ == "__main__":
             "%m.%d.%Y_%H.%M.%S")
         if not os.path.exists(filename):
             os.makedirs(filename + '/')
+        # Using trainer.train the dubugger works better
         if ARGS.debug:
 
             agent = ppo.PPOTrainer(config=config)
