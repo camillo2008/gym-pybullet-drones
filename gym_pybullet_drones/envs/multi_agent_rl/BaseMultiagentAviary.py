@@ -65,6 +65,7 @@ class BaseMultiagentAviary(BaseAviary, MultiAgentEnv):
             The type of action space (1 or 3D; RPMS, thurst and torques, waypoint or velocity with PID control; etc.)
 
         """
+
         if num_drones < 2:
             print("[ERROR] in BaseMultiagentAviary.__init__(), num_drones should be >= 2")
             exit()
@@ -100,9 +101,12 @@ class BaseMultiagentAviary(BaseAviary, MultiAgentEnv):
                          vision_attributes=vision_attributes,
                          dynamics_attributes=dynamics_attributes
                          )
+
+
         #### Set a limit on the maximum target speed ###############
         if act == ActionType.VEL:
             self.SPEED_LIMIT = 0.03 * self.MAX_SPEED_KMH * (1000/3600)
+        MultiAgentEnv.__init__(self)
 
     ################################################################################
 
@@ -315,7 +319,7 @@ class BaseMultiagentAviary(BaseAviary, MultiAgentEnv):
         """
         if self.OBS_TYPE == ObservationType.RGB:
             if self.step_counter%self.IMG_CAPTURE_FREQ == 0: 
-                for i in range(self.NUM_DRONES):
+                for i in self._agent_ids:
                     self.rgb[i], self.dep[i], self.seg[i] = self._getDroneImages(i,
                                                                                  segmentation=False
                                                                                  )
@@ -326,18 +330,18 @@ class BaseMultiagentAviary(BaseAviary, MultiAgentEnv):
                                           path=self.ONBOARD_IMG_PATH+"drone_"+str(i),
                                           frame_num=int(self.step_counter/self.IMG_CAPTURE_FREQ)
                                           )
-            return {i: self.rgb[i] for i in range(self.NUM_DRONES)}
-        elif self.OBS_TYPE == ObservationType.KIN: 
+            return {i: self.rgb[i] for i in self._agent_ids}
+        elif self.OBS_TYPE == ObservationType.KIN:
             ############################################################
             #### OBS OF SIZE 20 (WITH QUATERNION AND RPMS)
-            # return {   i   : self._clipAndNormalizeState(self._getDroneStateVector(i)) for i in range(self.NUM_DRONES) }
+            # return {   i   : self._clipAndNormalizeState(self._getDroneStateVector(i)) for i in self._agent_ids }
             ############################################################
             #### OBS SPACE OF SIZE 12
-            obs_12 = np.zeros((self.NUM_DRONES,12))
-            for i in range(self.NUM_DRONES):
+            kin = {x :np.zeros(12) for x in self._agent_ids}
+            for i in self._agent_ids:
                 obs = self._clipAndNormalizeState(self._getDroneStateVector(i))
-                obs_12[i, :] = np.hstack([obs[0:3], obs[7:10], obs[10:13], obs[13:16]]).reshape(12,)
-            return {i: obs_12[i, :] for i in range(self.NUM_DRONES)}
+                kin[i] = np.hstack([obs[0:3], obs[7:10], obs[10:13], obs[13:16]]).reshape(12,)
+            return kin
             ############################################################
         else:
             print("[ERROR] in BaseMultiagentAviary._computeObs()")

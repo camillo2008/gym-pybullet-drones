@@ -74,6 +74,8 @@ class BaseAviary(gym.Env):
             Whether to allocate the attributes needed by subclasses accepting thrust and torques inputs.
 
         """
+        #### Ray-env-variables #############################################
+        self._agent_ids = set(range(num_drones))
         #### Constants #############################################
         self.G = 9.8
         self.RAD2DEG = 180/np.pi
@@ -232,6 +234,7 @@ class BaseAviary(gym.Env):
             in each subclass for its format.
 
         """
+        self._agent_ids = set(range(self.NUM_DRONES))
         p.resetSimulation(physicsClientId=self.CLIENT)
         #### Housekeeping ##########################################
         self._housekeeping()
@@ -247,6 +250,7 @@ class BaseAviary(gym.Env):
     def step(self,
              action
              ):
+        print(action)
         """Advances the environment by one simulation step.
 
         Parameters
@@ -273,7 +277,7 @@ class BaseAviary(gym.Env):
         """
         cameraTargetPosition = self._getDroneStateVector(0)
         max_position_x = -15
-        for i in range(self.NUM_DRONES):
+        for i in self._agent_ids:
             if self._getDroneStateVector(i)[1] < 10 and self._getDroneStateVector(i)[1] > -10:
                 if self._getDroneStateVector(i)[0] > max_position_x:
                     max_position_x = self._getDroneStateVector(i)[0]
@@ -909,7 +913,7 @@ class BaseAviary(gym.Env):
                 self.last_action[int(k), :] = res_v
         else: 
             res_action = np.resize(action, (1, 4)) # Resize, possibly with repetition, to cope with different action spaces in RL subclasses
-            self.last_action = np.reshape(res_action, (self.NUM_DRONES, 4))
+            self.last_action = np.reshape(res_action, (len(self._agent_ids), 4))
     
     ################################################################################
 
