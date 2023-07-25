@@ -89,6 +89,7 @@ class CustomTorchCentralizedCriticModel(TorchModelV2, nn.Module):
                                                   model_config,
                                                   name + "_action"
                                                   )
+
         self.value_model = FullyConnectedNetwork(
                                                  obs_space, 
                                                  action_space,
@@ -96,6 +97,7 @@ class CustomTorchCentralizedCriticModel(TorchModelV2, nn.Module):
                                                  model_config, 
                                                  name + "_vf"
                                                  )
+
         self._model_in = None
 
     def forward(self, input_dict, state, seq_lens):
@@ -154,12 +156,12 @@ if __name__ == "__main__":
     if not os.path.exists(filename):
         os.makedirs(filename+'/')
 
-    #### Print out current git commit hash #####################
-    if platform == "linux" or platform == "darwin":
-        git_commit = subprocess.check_output(["git", "describe", "--tags"]).strip()
-        with open(filename+'/git_commit.txt', 'w+') as f:
-            f.write(str(git_commit))
-
+    # #### Print out current git commit hash #####################
+    # if platform == "linux" or platform == "darwin":
+    #     git_commit = subprocess.check_output(["git", "describe", "--tags"]).strip()
+    #     with open(filename+'/git_commit.txt', 'w+') as f:
+    #         f.write(str(git_commit))
+    ARGS.act = ActionType.PID
     #### Constants, and errors #################################
     if ARGS.obs==ObservationType.KIN:
         OWN_OBS_VEC_SIZE = 12
@@ -191,6 +193,7 @@ if __name__ == "__main__":
 
     #### Register the environment ##############################
     temp_env_name = "this-aviary-v0"
+    ARGS.env = "leaderfollower"
     if ARGS.env == 'flock':
         register_env(temp_env_name, lambda _: FlockAviary(num_drones=ARGS.num_drones,
                                                           aggregate_phy_steps=shared_constants.AGGR_PHY_STEPS,
@@ -254,7 +257,9 @@ if __name__ == "__main__":
 
     #### Set up the trainer's config ###########################
     config = ppo.DEFAULT_CONFIG.copy() # For the default config, see github.com/ray-project/ray/blob/master/rllib/agents/trainer.py
-    config = {
+    print(config)
+    exit()
+    config = {# **config,
         "env": temp_env_name,
         "num_workers": 0 + ARGS.workers,
         "num_gpus": int(os.environ.get("RLLIB_NUM_GPUS", "0")), # Use GPUs iff `RLLIB_NUM_GPUS` env var set to > 0
@@ -284,7 +289,8 @@ if __name__ == "__main__":
         # "episode_reward_mean": 0,
         # "training_iteration": 0,
     }
-
+    print(config)
+    exit()
     #### Train #################################################
     results = tune.run(
         "PPO",

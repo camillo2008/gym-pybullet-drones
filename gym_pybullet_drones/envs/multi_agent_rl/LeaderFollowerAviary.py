@@ -99,8 +99,10 @@ class LeaderFollowerAviary(BaseMultiagentAviary):
             one additional boolean value for key "__all__".
 
         """
-        bool_val = True if self.step_counter/self.SIM_FREQ > self.EPISODE_LEN_SEC else False
-        done = {i: bool_val for i in range(self.NUM_DRONES)}
+        bool_val = True if self.step_counter > 20 else False
+        #bool_val = True
+        done = {i: bool_val for i in range(1)}
+        done[1] = False
         done["__all__"] = bool_val # True if True in done.values() else False
         return done
 
